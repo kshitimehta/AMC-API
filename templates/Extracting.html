@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+	<title>AMC User Interface</title>
+<style>
+
+
+a:link, a:visited {
+  background-color: black;
+  color: white;
+  padding: 14px 25px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+}
+
+a:hover, a:active {
+  background-color: gray
+}
+
+</style>
+</head>
+<body>
+	<div>
+    	{% for row in data %}
+		<p> Trip #{{ row[0] }} </p>
+    		<p>The date range is {{ row[3] }} to {{ row[4] }}</p>
+		<p>Number of guests for this visit are {{ row[2] }}</p>
+		<p>Distance travelled: IN {{ row[5] }} miles and OUT {{ row[8] }} miles</p>
+    	{% endfor %}
+	</div>
+</body>
+</html>
