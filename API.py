@@ -4,7 +4,7 @@ Spyder Editor
 
 This is a temporary script file.
 """    
-from flask import Flask, render_template, make_response, request
+from flask import Flask, render_template, make_response, request, flash, jsonify
 import psycopg2
 from pandas import DataFrame
 import pandas as pd
@@ -13,9 +13,12 @@ import io
 from waitress import serve
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
+from redis import Redis
+import rq
 
 
 app = Flask(__name__, static_url_path='/static')
+app.secret_key = 'very secret key'
 #app.debug=True
 #@app.route('/user/<username>')
 #def show_user_profile(username):
@@ -27,25 +30,53 @@ app = Flask(__name__, static_url_path='/static')
 #    # show the post with the given id, the id is an integer
 #    return 'Post %d' % post_id
 #
-
-con = psycopg2.connect(database="", user="", password="", host="", port="")
+ 
+con = psycopg2.connect(database="amcdb", user="postgres", password="amcdb", host="localhost", port="5432")
 cursor = con.cursor()
+queue = rq.Queue('amc-tasks', connection=Redis.from_url('redis://'))
+job = None
 
 @app.route("/")
-def main():  
-    return render_template("test.html")
+def main():   
+    return render_template("home.html")
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
+    global job
     df = pd.DataFrame()
-    type_field = ""
+    type_field = "guestload"
+    progress = 0
+    loading = False
+
     if request.method == 'POST':
-        df = pd.read_csv(request.files.get('file'))
-    type_field = request.args.get('type')
-    if type_field=="guestload":
-        #run pipeline for guest data here  
-        print("")
-    return render_template('upload.html', shape=df.shape, data=type_field) 
+        year = request.form['year']
+        ufile = request.files['file']
+    
+        if ufile.filename == '':
+            flash('No file selected')
+            return render_template('upload.html', shape=df.shape, data=type_field) 
+        else:
+            df = pd.read_csv(ufile)
+    
+        type_field = request.args.get('type')
+        if type_field=="guestload":
+            # Here we execute the code to preprocess and upload data to database
+            #df.to_csv(f'tmp/{ufile.filename}')
+            #progress = 20
+            job = queue.enqueue("upload.upload_and_process", seconds=30, year=year)
+            loading = True
+
+            print(f"Running pipeline on {year}")
+    return render_template('upload.html', data=type_field, progress = progress, loading = loading) 
+
+@app.route('/progress')
+def task_progress():
+    #job = rq.get_current_job()
+    #if job:
+    job.refresh()
+    return jsonify(job.meta)
+
+    #return("Nothing")
 
 @app.route('/Extracting')
 def extract():
