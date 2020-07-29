@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block styles %}
+{{ super() }}
+
+<style>
+.main {
+    margin-right: 5%;
+    margin-left: 5%;
+    margin-right:5%;
+}
+
+td {
+    padding:10px;
+}
+</style>
+
+{% endblock styles %}
+
+
+
+{% block content %}
+
+<div class="main">
+    {{ wtf.quick_form(form) }}
+</div>
+
+{% endblock content %}
+

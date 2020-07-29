@@ -5,6 +5,11 @@ Spyder Editor
 This is a temporary script file.
 """    
 from flask import Flask, render_template, make_response, request, flash, jsonify
+from flask_bootstrap import Bootstrap
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField, DateField
+from wtforms.validators import DataRequired
+from flask_wtf.file import FileRequired, FileField
 import psycopg2
 from pandas import DataFrame
 import pandas as pd
@@ -18,7 +23,16 @@ import rq
 
 
 app = Flask(__name__, static_url_path='/static')
+# Initialize secret key and bootstrap
 app.secret_key = 'very secret key'
+bootstrap = Bootstrap(app)
+
+# Define class for form in upload
+class UploadForm(FlaskForm):
+    year = DateField('Year of the data:', format='%Y', validators=[DataRequired()])
+    csv = FileField(label='CSV File:', validators=[FileRequired()])
+    submit = SubmitField('Upload')
+
 #app.debug=True
 #@app.route('/user/<username>')
 #def show_user_profile(username):
@@ -43,31 +57,34 @@ def main():
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     global job
-    df = pd.DataFrame()
-    type_field = "guestload"
-    progress = 0
-    loading = False
 
-    if request.method == 'POST':
-        year = request.form['year']
-        ufile = request.files['file']
-    
-        if ufile.filename == '':
-            flash('No file selected')
-            return render_template('upload.html', shape=df.shape, data=type_field) 
-        else:
-            df = pd.read_csv(ufile)
-    
-        type_field = request.args.get('type')
-        if type_field=="guestload":
-            # Here we execute the code to preprocess and upload data to database
-            #df.to_csv(f'tmp/{ufile.filename}')
-            #progress = 20
-            job = queue.enqueue("upload.upload_and_process", seconds=30, year=year)
-            loading = True
+    # Find out if job is still running
+    try: 
+        if job != None:
+            job.refresh()
+            p = job.meta['progress']
+            year = job.meta['year']
+            if p < 100:
+                return render_template('loading.html', year = year)
+    except:
+        job = None
+    # This works with GET
+    form =UploadForm()
+    # This works with POST
+    if form.validate_on_submit():
+        # Process data here
+        year = form.year.data.year
+        csv = form.csv.data
+        # Load the data and put in the server 
+        #df = pd.read_csv(csv)
+        # Run the process
+        job = queue.enqueue("upload.upload_and_process", seconds=30, year=year, data=csv.filename)
 
-            print(f"Running pipeline on {year}")
-    return render_template('upload.html', data=type_field, progress = progress, loading = loading) 
+        return render_template('loading.html', year = year)
+
+
+    # If get then return the template with the form
+    return render_template('upload_reservations.html', form = form)
 
 @app.route('/progress')
 def task_progress():

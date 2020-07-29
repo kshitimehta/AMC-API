@@ -1,79 +1,32 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-    {% block head %}
-	<title>{% block title %} {% endblock title%}</title>
-    {% endblock head %}
+{% extends 'bootstrap/base.html' %}
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-{% block script %}
-{% endblock script %}
+{% block title %} AMC Reservations
+{% endblock title %} 
 
-<style>
-.sidenav {
-  height: 100%;
-  width: 160px;
-  position: fixed;
-  z-index: 1;
-  top: 0;
-  left: 0;
-  background-color: #111;
-  overflow-x: hidden;
-  padding-top: 20px;
-  color: white
-}
+{% block navbar %}
+<a href="/"> <img src="https://www.outdoors.org/wp-content/themes/amc_wp/images/AMC_MainLockup@2x.png" data-no-lazy="1" alt="AMC MainLockup@x" style="margin-bottom:5px; margin-top:5px;"> </a>
+<div class = "navbar navbar-inverse" role="navigation">
+    <div class="container">
+        <div class="navbar-header">
+            <button type = "button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only"> Toggle navigation </span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="nav-brand" href="/"></a>
+        </div>
+        <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="/">Query</a></li>
+                <li><a href="/">Analysis</a></li>
+                <li><a href="/">Extraction</a></li>
+                <li><a href="/upload">Upload</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
 
-.sidenav a {
-  padding: 6px 8px 6px 16px;
-  text-decoration: none;
-  font-size: 16px;
-  color: #818181;
-  display: block;
-}
+{% endblock navbar %}
+    
 
-.sidenav a:hover {
-  color: #f1f1f1;
-}
-
-.main {
-  margin-left: 170px; /* Same as the width of the sidenav */
-  font-size: 14px; /* Increased text to enable scrolling */
-  padding: 0px 10px;
-}
-
-@media screen and (max-height: 450px) {
-  .sidenav {padding-top: 16px;}
-  .sidenav a {font-size: 18px;}
-}
-
-div:img{
-	width: 50%;
-	height: 50%
-}
-
-a:link, a:visited {
-  background-color: black;
-  color: white;
-  padding: 14px 25px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-}
-
-a:hover, a:active {
-  background-color: gray
-}
-
-</style>
-
-</head>
-<body>
-
-{% block body %}
-{% endblock %}
-
-</body>
-</html>
