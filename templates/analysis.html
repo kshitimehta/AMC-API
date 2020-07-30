@@ -6,6 +6,18 @@
 	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 	<title>AMC User Interface</title>
 <style>
+
+	.wrapper{
+        text-align:center;
+    }
+    .button{
+        position:absolute;
+        left:570px;
+        background-color:#A9A9A9;
+        font-size: 30px;
+        top:35%;
+    }   
+
 .sidenav {
   height: 100%;
   width: 160px;
@@ -47,7 +59,7 @@ div:img{
 	height: 50%
 }
 
-a:link, a:visited {
+	a:link, a:visited {
   background-color: black;
   color: white;
   padding: 14px 25px;
@@ -68,21 +80,45 @@ a:hover, a:active {
 	<h2 style="text-align: center;">MENU</h2>
   	<a href="{{url_for('analysis',type='graph1')}}">Monthly Emissions</a>
     <a href="{{url_for('analysis',type='graph2')}}">Yearly Emissions</a>
-    <a href="{{url_for('analysis',type='graph3')}}">Emissions by Facility</a>
-    <a href="{{url_for('analysis',type='graph4')}}">Graph 4</a>
+    <a href="{{url_for('analysis',type='graph3')}}">Emissions By Facility for Boston Area</a>
+    <a href="{{url_for('analysis',type='graph4')}}">Emissions for AMC Facilities</a>
 </div>
 
 <div class="main">
-	<div class="img">
-		<p> This is the main content part </p>
-		{{ div | safe }}
-        {{ script | safe }}
-		<!-- <p>{{name}}</p>
-		<img src = {{ image }}, width="100%", height="100%"> -->
-	</div>	
+	
+	<form class="ey" method="POST" action="{{url_for('analysis')}}">
+		<!-- <p> This is the main content part </p> -->
+		<!-- {{ div | safe }}
+        {{ script | safe }} -->
+	<h2>Year Range: </h2>
+		<!-- <select name= "year" method="GET" action="/">
+		<option value="none" selected disabled>Select Year</option> -->
+    {% for year in years %}
+    <input type="checkbox" name="year" value="{{year}}"> {{year}} <br/>
+    	<!-- <option value= "{{year}}" SELECTED>{{year}}</option>" -->
+    {% endfor %}
+	<!-- </select> -->
+	<h2>Facility: </h2>
+		<!-- <select name= "fac" method="GET" action="/" onchange="showselected(this.value);">
+		<option value="none" selected="selected" disabled> Select Facility </option> -->
+    {% for facility in facilities %}
+    	<!-- <option value= "{{facility}}" SELECTED>{{facility}}</option>" -->
+      <input type="checkbox" name="fac" value="{{facility}}"> {{facility}} <br/>
+    {% endfor %}
+	</select>
+
+	<div class = "wrapper">
+	<button class = "button" type="submit" value="submit">Choose</button>
+	</div>
+	
+
+	</form>
+
+</div>
+<div class="main">
+  <div id="LinkDiv">
+  <a href="{{url_for('analysis',type='clicked')}}">Emissions By Facility CSV Download</a>
+  </div>
 </div>
 
-
-
-</body>
 </html>
