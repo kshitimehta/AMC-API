@@ -18,9 +18,9 @@
         </div>
         <div class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-                <li><a href="/">Query</a></li>
-                <li><a href="/">Analysis</a></li>
-                <li><a href="/">Extraction</a></li>
+                <li><a href="{{url_for('q_emissions_facility')}}">Query</a></li>
+                <li><a href="{{url_for('analysis_q_emissions_facility')}}">Analysis</a></li>
+                <li><a href="{{url_for('csv_export')}}">Extraction</a></li>
                 <li><a href="/upload">Upload</a></li>
             </ul>
         </div>

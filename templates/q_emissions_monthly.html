@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block styles %}
+{{ super() }}
+
+<style>
+
+#sidebar {
+    padding:15px;
+    margin-top:10px;
+    min-width: 250px;
+    max-width: 250px;
+}
+
+.nav-pills .nav-link {
+  background-color: rgba(100,100,100);
+  color: black;
+}
+
+</style>
+
+{% endblock styles %}
+
+{% block content %}
+
+<div class="container-fluid">
+    <div class="row row-offcanvas row-offcanvas-left">
+        <div class="col-xs-6 col-sm-3 sidebar-offcanvas" id="sidebar" role="navigation">
+          <div class="sidebar-nav">
+            <ul class="nav nav-pills nav-stacked">
+              <li ><a href="{{url_for('q_emissions_facility')}}">Emissions for AMC facilities</a></li>
+              <li class="active"><a href="{{url_for('q_emissions_monthly')}}">Monthly Emissions</a></li>
+              <li><a href="{{url_for('q_emissions_yearly')}}">Yearly Emissions</a></li>
+              <li><a href="{{url_for('q_emissions_facility_boston')}}">Emissions by Facility for Metropolitan Area</a></li>
+              <li ><a href="{{url_for('q_emissions_dow')}}">Emissions by Facility by Day of Week</a></li>
+            </ul>
+            </div>
+        </div>
+
+        <div class="col-xs-12 col-sm-9">
+            {{ wtf.quick_form(form) }}  
+        </div>
+        
+    </div>
+</div>
+
+{% endblock content %}
