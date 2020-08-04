@@ -28,9 +28,7 @@ from amcdb import amcdb
 
 app = Flask(__name__, static_url_path='/static')
 # Initialize secret key and bootstrap
-app.secret_key = 'very secret key'
-dbstring = 'postgresql://aespin:amc2020@128.119.246.25/amcdb'
-key='AjCfQcxOM9sMHM-GslggiUHvHASWwuc3TdjTNGVsyo15Nxzapzq_pEh-R5eMML6o'
+
 bootstrap = Bootstrap(app)
 
 # Definitions of classes for forms
