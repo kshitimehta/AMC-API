@@ -55,7 +55,7 @@ class AnalysisYearlyForm(FlaskForm):
 # Class for Area and and facility
 class AnalysisAreaForm(FlaskForm):
     year = SelectMultipleField('Years:', validators=[InputRequired()], coerce=int)
-    area = SelectField('Area:', choices=[('021','Boston'),('100','New York'),('041','Portland')], validators=[InputRequired()])
+    area = SelectField('Area:', choices=[('010','Springfield, MA'),('015','Worceter, MA'),('017','Framingham, MA'),('018','Woburn, MA'),('019','Lynn, MA'),('020','Brockton, MA'),('021','Boston, MA'),('024','Lexington, MA'),('028','Providence,RI'),('030','Manchester, NH'),('032','Waterville Valley, NH'),('038','Portsmouth, NH'),('040','Portland, ME'),('054','Burlington, VT'),('060','Hartford, CT'),('064','New Haven, CT'),('070','Newark, NJ'),('100','New York, NY'),('112','Brooklyn, NY'),('190','Philadelphia, PA'), ('200','Washington DC')], validators=[InputRequired()])
     facilities = SelectMultipleField('Facilities:', validators=[InputRequired()])
     submit = SubmitField('Choose')
 
@@ -719,6 +719,6 @@ def csv_export():
     else:
         return render_template('export.html')
     
-#app.run()
-serve(app, host='127.0.0.1', port=8000)
+app.run()
+#serve(app, host='127.0.0.1', port=8000)
 
