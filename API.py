@@ -24,10 +24,18 @@ from matplotlib.figure import Figure
 from redis import Redis
 import rq
 from upload import upload_and_process
-from amcdb import amcdb
+import json
+
 
 app = Flask(__name__, static_url_path='/static')
 # Initialize secret key and bootstrap
+with open('secrets.json') as f:
+  secrets = json.load(f)
+
+# Initialize secrets
+app.secret_key = secrets['app.secret_key']
+dbstring = secrets['dbstring']
+key = secrets['key']
 
 bootstrap = Bootstrap(app)
 
@@ -59,8 +67,9 @@ class AnalysisAreaForm(FlaskForm):
 
 # Class for Days of the week over a certain dates
 class AnalysisDOWFacilities(FlaskForm):
-    start_date = DateField('Start of Period (mm/dd/yyyy):', format=r'%m/%d/%Y', validators=[DataRequired()])
-    end_date = DateField('End of Period (mm/dd/yyyy):', format=r'%m/%d/%Y', validators=[DataRequired()])
+#    start_date = DateField('Start of Period (mm/dd/yyyy):', format=r'%m/%d/%Y', validators=[DataRequired()])
+#    end_date = DateField('End of Period (mm/dd/yyyy):', format=r'%m/%d/%Y', validators=[DataRequired()])
+    year = SelectMultipleField('Years:', validators=[InputRequired()], coerce=int)
     facilities = SelectMultipleField('Facilities:', validators=[InputRequired()])
     submit = SubmitField('Choose')
 
@@ -115,9 +124,9 @@ def q_emissions_facility():
     '''
     
     # Select the data from database
-    years = pd.read_sql("select distinct year from building_emissions_per_month WHERE building_class='AMC'", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month WHERE building_class='AMC'", dbstring)
+    years = pd.read_sql("select distinct stay_year from monthly_emissions WHERE building_class='AMC'", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from monthly_emissions WHERE building_class='AMC'", dbstring)
     facilities = facilities['building_name'].sort_values().tolist()
 
     # Create form and load the possible choices
@@ -136,13 +145,13 @@ def q_emissions_facility():
         selectYear = ",".join(str(x) for x in years)
         selectFacility = ",".join(repr(x) for x in buildings)
         # Create the query and the file
-        qry_str = f"SELECT year, building_name, building_class, sum(ghg30) as ghg30, sum(ghg50) as ghg50, sum(bus) as bus, sum(grp) as grp FROM building_emissions_per_month WHERE year IN ({selectYear}) AND building_name IN ({selectFacility}) AND building_class='AMC' GROUP BY year, building_name, building_class ORDER BY year"
+        qry_str = f"SELECT * FROM monthly_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility}) AND building_class='AMC' ORDER BY stay_year"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         # Make a response as a CSV attachment
         df.to_csv(si, index = False)
         response = make_response(si.getvalue())
-        response.headers['Content-Disposition'] = 'attachment; filename=emissions_for_facilities.csv'
+        response.headers['Content-Disposition'] = 'attachment; filename=emissions_for_amc_facilities.csv'
         response.headers["Content-type"] = "text/csv"
 
         return response
@@ -157,9 +166,9 @@ def analysis_q_emissions_facility():
     '''
     
     # Select the data from database
-    years = pd.read_sql("select distinct year from building_emissions_per_month WHERE building_class='AMC'", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month WHERE building_class='AMC'", dbstring)
+    years = pd.read_sql("select distinct stay_year from monthly_emissions WHERE building_class='AMC'", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from monthly_emissions WHERE building_class='AMC'", dbstring)
     facilities = facilities['building_name'].sort_values().tolist()
 
     # Create form and load the possible choices
@@ -176,7 +185,7 @@ def analysis_q_emissions_facility():
         selectFacility = ",".join(repr(x) for x in buildings)
 
         # Create the query
-        qry_str = f"SELECT * FROM building_emissions_per_month WHERE year IN ({selectYear}) AND building_name IN ({selectFacility}) AND building_class = 'AMC'"
+        qry_str = f"SELECT * FROM monthly_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility}) AND building_class = 'AMC'"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         
@@ -187,7 +196,6 @@ def analysis_q_emissions_facility():
         response = make_response(pngImage.getvalue())
         response.mimetype = 'image/png'
         return response 
-        print("Nothing")
 
     return render_template("/analysis/q_emissions_facilities.html", form = form)
 
@@ -197,9 +205,9 @@ def q_emissions_monthly():
     Query emissions per month for given years and facilities 
     '''
     # Initialize years and facilities from database
-    years = pd.read_sql("select distinct year from building_emissions_per_month", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month", dbstring)
+    years = pd.read_sql("select distinct stay_year from monthly_emissions", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from monthly_emissions", dbstring)
     facilities = facilities['building_name'].sort_values().tolist()
 
     # Initialize the form
@@ -219,7 +227,7 @@ def q_emissions_monthly():
         selectFacility = ",".join(repr(x) for x in buildings)
 
         # Create the query
-        qry_str = f"SELECT * FROM building_emissions_per_month WHERE year IN ({selectYear}) AND building_name IN ({selectFacility})"
+        qry_str = f"SELECT * FROM monthly_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility})"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         # Make a response as a CSV attachment
@@ -238,9 +246,9 @@ def analysis_q_emissions_monthly():
     Query emissions per month for given years and facilities 
     '''
     # Initialize years and facilities from database
-    years = pd.read_sql("select distinct year from building_emissions_per_month", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month", dbstring)
+    years = pd.read_sql("select distinct stay_year from monthly_emissions", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from monthly_emissions", dbstring)
     facilities = facilities['building_name'].sort_values().tolist()
 
     # Initialize the form
@@ -257,7 +265,7 @@ def analysis_q_emissions_monthly():
         selectFacility = ",".join(repr(x) for x in buildings)
 
         # Create the query
-        qry_str = f"SELECT * FROM building_emissions_per_month WHERE year IN ({selectYear}) AND building_name IN ({selectFacility})"
+        qry_str = f"SELECT * FROM monthly_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility})"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         
@@ -269,7 +277,7 @@ def analysis_q_emissions_monthly():
         response.mimetype = 'image/png'
         return response
 
-    return render_template("q_emissions_monthly.html", form = form)
+    return render_template("/analysis/q_emissions_monthly.html", form = form)
 
 
 @app.route('/q_emissions_yearly', methods=['GET','POST'])
@@ -278,7 +286,7 @@ def q_emissions_yearly():
     Emissions per year per facility
     '''
     # Select available facilities from database
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month", dbstring)
+    facilities = pd.read_sql("select distinct building_name from yearly_emissions", dbstring)
     bldgs = facilities['building_name'].sort_values().tolist()
 
     # Create the form
@@ -295,13 +303,13 @@ def q_emissions_yearly():
         selectFacility = ",".join(repr(x) for x in buildings)
 
         # Create the query
-        qry_str = f"SELECT year, building_name, building_class, sum(ghg30) as ghg30, sum(ghg50) as ghg50, sum(bus) as bus, sum(grp) as grp FROM building_emissions_per_month WHERE building_name IN ({selectFacility}) GROUP BY year, building_name, building_class ORDER BY year"
+        qry_str = f"SELECT * FROM yearly_emissions WHERE building_name IN ({selectFacility})"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         # Make a response as a CSV attachment
         df.to_csv(si, index = False)
         response = make_response(si.getvalue())
-        response.headers['Content-Disposition'] = 'attachment; filename=emissions_per_years.csv'
+        response.headers['Content-Disposition'] = 'attachment; filename=emissions_per_year.csv'
         response.headers["Content-type"] = "text/csv"
 
         return response
@@ -314,7 +322,7 @@ def analysis_q_emissions_yearly():
     Emissions per year per facility
     '''
     # Select available facilities from database
-    facilities = pd.read_sql("select distinct building_name from building_emissions_per_month", dbstring)
+    facilities = pd.read_sql("select distinct building_name from yearly_emissions", dbstring)
     bldgs = facilities['building_name'].sort_values().tolist()
 
     # Create the form
@@ -329,7 +337,7 @@ def analysis_q_emissions_yearly():
         selectFacility = ",".join(repr(x) for x in buildings)
 
         # Create the query
-        qry_str = f"SELECT year, building_name, building_class, sum(ghg30) as ghg30, sum(ghg50) as ghg50, sum(bus) as bus, sum(grp) as grp FROM building_emissions_per_month WHERE building_name IN ({selectFacility}) GROUP BY year, building_name, building_class ORDER BY year"
+        qry_str = f"SELECT * FROM yearly_emissions WHERE building_name IN ({selectFacility})"
         # Query on database
         df = pd.read_sql(qry_str, dbstring)
         # Make a response as a CSV attachment
@@ -354,29 +362,32 @@ def q_emissions_facility_boston():
     facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
-    bldg_code = facilities['building_code'].tolist()
 
     # Create a form and add choices found
     form = AnalysisAreaForm()
     form.year.choices = [(x,x) for x in years]
-    form.facilities.choices = [(x,y) for x,y in zip(bldg_code,bldg_name)]
+    form.facilities.choices = [(x,x) for x in bldg_name]
       
     if form.validate_on_submit():
         # Initialize objects needed for querying information and creating 
         # response
         si = io.StringIO()
-        amc = amcdb(dbstring)
+#        amc = amcdb(dbstring)
         # After validated and POST create the variables from user response 
         years = form.year.data
         buildings = form.facilities.data
         area = form.area.data
 
-        # Query data from database and filter for years
-        df = amc.emissions_by_building_origin(buildings,area)
-        resp = df[df['year'].isin(years)]
-
+        selectYear = ",".join(str(x) for x in years)
+        selectFacility = ",".join(repr(x) for x in buildings)
+        selectArea = repr(area)
+#        print(start_date,end_date)
+        # Create the query
+        qry_str = f"SELECT * FROM emissions_by_zipcode WHERE stay_year IN ({selectYear}) AND zipcode IN ({selectArea}) AND building_name IN ({selectFacility})"
+        # Query on database
+        df = pd.read_sql(qry_str, dbstring)
         # Make a response as a CSV attachment
-        resp.to_csv(si, index = False)
+        df.to_csv(si, index = False)
         response = make_response(si.getvalue())
         response.headers['Content-Disposition'] = f'attachment; filename=emissions_for_{area}.csv'
         response.headers["Content-type"] = "text/csv"
@@ -397,27 +408,31 @@ def analysis_q_emissions_facility_boston():
     facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
-    bldg_code = facilities['building_code'].tolist()
 
     # Create a form and add choices found
     form = AnalysisAreaForm()
     form.year.choices = [(x,x) for x in years]
-    form.facilities.choices = [(x,y) for x,y in zip(bldg_code,bldg_name)]
+    form.facilities.choices = [(x,x) for x in bldg_name]
       
     if form.validate_on_submit():
         # Initialize objects needed for querying information and creating 
-        amc = amcdb(dbstring)
+#        amc = amcdb(dbstring)
         # After validated and POST create the variables from user response 
         years = form.year.data
         buildings = form.facilities.data
         area = form.area.data
-
-        # Query data from database and filter for years
-        df = amc.emissions_by_building_origin(buildings,area)
-        resp = df[df['year'].isin(years)]
-
+        
+        selectYear = ",".join(str(x) for x in years)
+        selectFacility = ",".join(repr(x) for x in buildings)
+        selectArea = repr(area)
+#        print(start_date,end_date)
+        # Create the query
+        qry_str = f"SELECT * FROM emissions_by_zipcode WHERE stay_year IN ({selectYear}) AND zipcode IN ({selectArea}) AND building_name IN ({selectFacility})"
+        # Query on database
+        df = pd.read_sql(qry_str, dbstring)
+        
         #Call function to generate the graph and return it
-        fig = zipcode(resp)
+        fig = zipcode(df)
         pngImage = io.BytesIO()
         FigureCanvas(fig).print_png(pngImage)
         response = make_response(pngImage.getvalue())
@@ -432,40 +447,41 @@ def q_emissions_dow():
     Query emissions per month for given years and facilities 
     '''
     # Select available facilities from database
-    years = pd.read_sql("select distinct year from building_origin", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
+    years = pd.read_sql("select distinct stay_year from dow_emissions", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from dow_emissions", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
-    bldg_code = facilities['building_code'].tolist()
 
     # Create the form
     form = AnalysisDOWFacilities()
-    form.facilities.choices = [(x,y) for x,y in zip(bldg_code,bldg_name)]
+    form.year.choices = [(x,x) for x in years]
+    form.facilities.choices = [(x,x) for x in bldg_name]
     
     # POST was submitted, validate the form
     if form.validate_on_submit():
         # Initialize objects needed for querying information and creating 
         # response
         si = io.StringIO()
-        amc = amcdb(dbstring)
+#        amc = amcdb(dbstring)
         # After validated and POST create the variables from user response 
-        start_date = form.start_date.data
-        end_date = form.end_date.data
+#        start_date = form.start_date.data
+#        end_date = form.end_date.data
+        years = form.year.data
         buildings = form.facilities.data
+        selectYear = ",".join(str(x) for x in years)
+        selectFacility = ",".join(repr(x) for x in buildings)
 
-        print(start_date,end_date)
+#        print(start_date,end_date)
+        # Create the query
+        qry_str = f"SELECT * FROM dow_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility})"
+        # Query on database
+        df = pd.read_sql(qry_str, dbstring)
 
-        # Query data from database and filter for years
-        df = amc.emissions_by_day(start_date,end_date)
-        resp = df[df['building_code'].isin(buildings)].groupby(['dow','building_name']).sum().reset_index()
-        resp['dow'] = resp['dow'].astype(int)
-        resp['dow'] = resp['dow'].map({0:'Mon',1:'Tue',2:'Wed',3:'Thu',4:'Fri',5:'Sat',6:'Sun'})
-        
         # Make a response as a CSV attachment
-        resp.to_csv(si, index = False)
+        df.to_csv(si, index = False)
         response = make_response(si.getvalue())
-        response.headers['Content-Disposition'] = 'attachment; filename=emissions_per_years.csv'
+        response.headers['Content-Disposition'] = 'attachment; filename=emissions_dow.csv'
         response.headers["Content-type"] = "text/csv"
 
         return response
@@ -478,36 +494,41 @@ def analysis_q_emissions_dow():
     Query emissions per month for given years and facilities 
     '''
     # Select available facilities from database
-    years = pd.read_sql("select distinct year from building_origin", dbstring)
-    years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
+    years = pd.read_sql("select distinct stay_year from dow_emissions", dbstring)
+    years = years['stay_year'].astype(int).sort_values().tolist()
+    facilities = pd.read_sql("select distinct building_name from dow_emissions", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
-    bldg_code = facilities['building_code'].tolist()
 
     # Create the form
     form = AnalysisDOWFacilities()
-    form.facilities.choices = [(x,y) for x,y in zip(bldg_code,bldg_name)]
+    form.year.choices = [(x,x) for x in years]
+    form.facilities.choices = [(x,x) for x in bldg_name]
     
     # POST was submitted, validate the form
     if form.validate_on_submit():
         # Initialize objects needed for querying information and creating 
         # response
-        amc = amcdb(dbstring)
+#        amc = amcdb(dbstring)
         # After validated and POST create the variables from user response 
-        start_date = form.start_date.data
-        end_date = form.end_date.data
+#        start_date = form.start_date.data
+#        end_date = form.end_date.data
+        years = form.year.data
         buildings = form.facilities.data
+        selectYear = ",".join(str(x) for x in years)
+        selectFacility = ",".join(repr(x) for x in buildings)
 
-        # Query data from database and filter for years
-        df = amc.emissions_by_day(start_date,end_date)
-        resp = df[df['building_code'].isin(buildings)].groupby(['dow','building_name']).sum().reset_index()
-        resp['dow'] = resp['dow'].astype(int)
-        resp['dow'] = resp['dow'].map({0:'Mon',1:'Tue',2:'Wed',3:'Thu',4:'Fri',5:'Sat',6:'Sun'})
-        resp = resp.groupby('dow').sum().reset_index()
+        # Create the query
+        qry_str = f"SELECT stay_day, sum(ghg30) as ghg30, sum(ghg50) as ghg50, sum(bus) as bus, sum(grp) as grp FROM dow_emissions WHERE stay_year IN ({selectYear}) AND building_name IN ({selectFacility}) GROUP BY stay_day ORDER BY stay_day"
+        # Query on database
+        df = pd.read_sql(qry_str, dbstring)
+        # Make a response as a CSV attachment
+        
+        #Generate graph for the requested query
+
         fig = plt.figure(figsize=(20,20))
         ax = fig.add_subplot(1, 1, 1)
-        resp.plot(ax=ax, x='dow', y=["ghg30", "ghg50", "bus", "grp"], kind="bar")
+        df.plot(ax=ax, x='stay_day', y=["ghg30", "ghg50", "bus", "grp"], kind="bar")
         ax.set_xlabel("Day of the week")
         ax.set_ylabel("GHG Emissions in metric tonnes")
         ax.set_title("Distribution of GHG Emissions by day of the week as per facility chosen and dates")
@@ -528,20 +549,20 @@ def visualisation():
     return response
 
 def monthly(result):
-    fig = Figure(figsize=(20,40))
-    df = DataFrame(result,columns=['month','year','building_code','building_name','building_class','zipcode','ghg30','ghg50','bus','grp'])
-    years=df["year"].unique().tolist()
+    fig = Figure(figsize=(25,35))
+    df=result
+    years=df["stay_year"].unique().tolist()
     years = list(map(str, years))
     x = len(years)
     i = 0
     for year in years:
         i += 1
-        new = df.loc[df['year']==float(year)]
+        new = df.loc[df['stay_year']==float(year)]
         
-        ghg30=new.groupby(['month'])['ghg30'].sum().reset_index(name="Total GHG30 per month")
-        month_ghg30 = dict(zip(ghg30['month'], ghg30['Total GHG30 per month'])) 
-        ghg50=new.groupby(['month'])['ghg50'].sum().reset_index(name="Total GHG50 per month")
-        month_ghg50 = dict(zip(ghg50['month'], ghg50['Total GHG50 per month']))
+        ghg30=new.groupby(['stay_month'])['ghg30'].sum().reset_index(name="Total GHG30 per month")
+        month_ghg30 = dict(zip(ghg30['stay_month'], ghg30['Total GHG30 per month'])) 
+        ghg50=new.groupby(['stay_month'])['ghg50'].sum().reset_index(name="Total GHG50 per month")
+        month_ghg50 = dict(zip(ghg50['stay_month'], ghg50['Total GHG50 per month']))
     
         keylist30 = month_ghg30.keys()
         keylist50 = month_ghg50.keys()
@@ -566,13 +587,12 @@ def monthly(result):
 
 def yearly(result):
     fig = Figure(figsize=(40,20))
-    df = DataFrame(result,columns=['month','year','building_code','building_name','building_class','zipcode','ghg30','ghg50','bus','grp'])
+    df= result
     
-    
-    ghg30=df.groupby(['year'])['ghg30'].sum().reset_index(name="Total GHG30 per year")
-    year_ghg30 = dict(zip(ghg30['year'], ghg30['Total GHG30 per year'])) 
-    ghg50=df.groupby(['year'])['ghg50'].sum().reset_index(name="Total GHG50 per year")
-    year_ghg50 = dict(zip(ghg50['year'], ghg50['Total GHG50 per year']))
+    ghg30=df.groupby(['stay_year'])['ghg30'].sum().reset_index(name="Total GHG30 per year")
+    year_ghg30 = dict(zip(ghg30['stay_year'], ghg30['Total GHG30 per year'])) 
+    ghg50=df.groupby(['stay_year'])['ghg50'].sum().reset_index(name="Total GHG50 per year")
+    year_ghg50 = dict(zip(ghg50['stay_year'], ghg50['Total GHG50 per year']))
 
     keylist30 = sorted(year_ghg30.keys())
     keylist50 = sorted(year_ghg50.keys())
@@ -596,20 +616,19 @@ def yearly(result):
 
 def zipcode(result):
     fig = Figure(figsize=(20,40))
-    df = DataFrame(result,columns=['month','year','building_code','building_name','building_class','zipcode','ghg30','ghg50','bus','grp'])
-    
-    years=df["year"].unique().tolist()
+    df = result
+    years=df["stay_year"].unique().tolist()
     years = list(map(str, years))
     x = len(years)
     i = 0
     for year in years:
         i += 1
-        new = df.loc[df['year']==float(year)]
+        new = df.loc[df['stay_year']==float(year)]
         
-        ghg30=new.groupby(['month'])['ghg30'].sum().reset_index(name="Total GHG30 per month")
-        month_ghg30 = dict(zip(ghg30['month'], ghg30['Total GHG30 per month'])) 
-        ghg50=new.groupby(['month'])['ghg50'].sum().reset_index(name="Total GHG50 per month")
-        month_ghg50 = dict(zip(ghg50['month'], ghg50['Total GHG50 per month']))
+        ghg30=new.groupby(['stay_month'])['ghg30'].sum().reset_index(name="Total GHG30 per month")
+        month_ghg30 = dict(zip(ghg30['stay_month'], ghg30['Total GHG30 per month'])) 
+        ghg50=new.groupby(['stay_month'])['ghg50'].sum().reset_index(name="Total GHG50 per month")
+        month_ghg50 = dict(zip(ghg50['stay_month'], ghg50['Total GHG50 per month']))
     
         keylist30 = month_ghg30.keys()
         keylist50 = month_ghg50.keys()
@@ -635,17 +654,17 @@ def zipcode(result):
 def vis():
     fig = Figure(figsize=(10,10))
 
-    qry_str = f"SELECT * FROM building_emissions_per_month"
+    qry_str = f"SELECT * FROM yearly_emissions"
     # Query on database
     df = pd.read_sql(qry_str, dbstring)   
-    ghg30=df.groupby(['year'])['ghg30'].sum().reset_index(name="Total GHG30 per year")
-    year_ghg30 = dict(zip(ghg30['year'], ghg30['Total GHG30 per year'])) 
-    ghg50=df.groupby(['year'])['ghg50'].sum().reset_index(name="Total GHG50 per year")
-    year_ghg50 = dict(zip(ghg50['year'], ghg50['Total GHG50 per year'])) 
-    bus=df.groupby(['year'])['bus'].sum().reset_index(name="Total emissions with bus per year")
-    year_bus = dict(zip(bus['year'], bus['Total emissions with bus per year'])) 
-    group=df.groupby(['year'])['grp'].sum().reset_index(name="Total emissions with group per year")
-    year_group = dict(zip(group['year'], group['Total emissions with group per year'])) 
+    ghg30=df.groupby(['stay_year'])['ghg30'].sum().reset_index(name="Total GHG30 per year")
+    year_ghg30 = dict(zip(ghg30['stay_year'], ghg30['Total GHG30 per year'])) 
+    ghg50=df.groupby(['stay_year'])['ghg50'].sum().reset_index(name="Total GHG50 per year")
+    year_ghg50 = dict(zip(ghg50['stay_year'], ghg50['Total GHG50 per year'])) 
+    bus=df.groupby(['stay_year'])['bus'].sum().reset_index(name="Total emissions with bus per year")
+    year_bus = dict(zip(bus['stay_year'], bus['Total emissions with bus per year'])) 
+    group=df.groupby(['stay_year'])['grp'].sum().reset_index(name="Total emissions with group per year")
+    year_group = dict(zip(group['stay_year'], group['Total emissions with group per year'])) 
     list(year_ghg30)
     list(year_ghg50)
     list(year_bus)
@@ -683,7 +702,7 @@ def csv_export():
     cw = csv.writer(si)
     c = con.cursor()
     if table == "table1":
-        c.execute('SELECT * FROM itinerary FULL OUTER JOIN reservation ON itinerary.itinerary_id=reservation.itinerary_id ORDER BY itinerary.itinerary_id ASC')
+        c.execute('SELECT * FROM itinerary_summary')
         rows = c.fetchall()
         cw.writerow([i[0] for i in c.description])
         cw.writerows(rows)
@@ -692,7 +711,7 @@ def csv_export():
         response.headers["Content-type"] = "text/csv"
         return response    
     if table == "table2":
-        c.execute('SELECT * FROM building_origin')
+        c.execute('SELECT * FROM emissions_facility')
         rows = c.fetchall()
         cw.writerow([i[0] for i in c.description])
         cw.writerows(rows)
@@ -700,20 +719,24 @@ def csv_export():
         response.headers['Content-Disposition'] = 'attachment; filename=emissions.csv'
         response.headers["Content-type"] = "text/csv"
         return response    
-        print()
     if table == "table3":
+        c.execute('SELECT * FROM amc_building')
+        rows = c.fetchall()
+        cw.writerow([i[0] for i in c.description])
+        cw.writerows(rows)
+        response = make_response(si.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=building.csv'
+        response.headers["Content-type"] = "text/csv"
+        return response 
+    if table == "table4":
         c.execute('SELECT * FROM distance_lookup')
         rows = c.fetchall()
         cw.writerow([i[0] for i in c.description])
         cw.writerows(rows)
         response = make_response(si.getvalue())
-        response.headers['Content-Disposition'] = 'attachment; filename=emissions.csv'
+        response.headers['Content-Disposition'] = 'attachment; filename=distance_lookup.csv'
         response.headers["Content-type"] = "text/csv"
-        return response  
-        print()
-    if table == "table4":
-        # insert function here
-        print()
+        return response 
     else:
         return render_template('export.html')
     

@@ -340,3 +340,15 @@ SELECT
 from building_emissions
 WHERE arrival_date > '2016-06-01' and arrival_date < '2016-09-01'
 GROUP BY dow, building_code, building_name, building_class;
+
+-- Test of data
+select 
+	i.itinerary_id, 
+	i.arrival_date, 
+	i.departure_date, 
+	r.reservation,
+	i.max_group_size
+from itinerary i
+right join reservation r
+on i.itinerary_id = r.itinerary_id
+where i.itinerary_id = 20;

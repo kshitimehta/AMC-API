@@ -49,8 +49,21 @@ class preprocess:
 
     def filter_rate_category(self, raw_df):
         '''
-        Filter by rate_category. Only value of 'room' are valid data. Return both dataframes
+        Filter by rate_category. Only value of 'room' are valid data. Return both dataframes.
+        Check that the right fields are present and drop what not should be there
         '''
+        # Check if the Stay_Date column is in the dataframe
+        if 'Stay_Date' in raw_df.columns:
+            raw_df = raw_df.drop(columns=['Stay_Date'])
+        
+        # Check for UID and UID_grp
+        if 'UID' in raw_df.columns:
+            raw_df = raw_df.drop(columns=['UID'])
+
+        # Check for UID and UID_grp
+        if 'UID' in raw_df.columns:
+            raw_df = raw_df.drop(columns=['UID_grp'])
+
         # Get everything different than room (Should be discarded)
         df_wr = raw_df[raw_df['rate_category'] != 'room']
         # Get everyhing with room (equivalent to dropna in building_code)

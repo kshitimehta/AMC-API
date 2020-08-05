@@ -254,7 +254,7 @@ class process:
         return itinerary_df
 
 
-    def update_db(self, itinerary, df1):
+    def update_db(self, itinerary, df1, message = None):
         ''' 
         Create the required tables for database and update the database. Return all tables produced
         '''
@@ -264,13 +264,14 @@ class process:
         i_tbl = pd.DataFrame(columns=['itinerary_id','guest_uid','max_group_size','arrival_date','departure_date','in_geo_d','in_drv_d','in_drv_time','out_geo_d','out_drv_d','out_drv_time'])
         b_visited_tbl = pd.DataFrame(columns=['itinerary_id','building_code','arrival','departure'])
         g_tbl = pd.DataFrame(columns=['guest_id','zipcode','city','state_province','country'])
+        n_proc = 0
 
-        def upload_database(row, df):
+        def upload_database(row, df, itn):
             '''
             Process the itineraries with the reservation dataframe to generate all required
             tables. The function should be applied over the itinerary dataFrame
             '''
-            nonlocal r_tbl, i_tbl, b_visited_tbl, g_tbl
+            nonlocal r_tbl, i_tbl, b_visited_tbl, g_tbl, n_proc, message
 
             itID = row['itinerary_ID']
             uid = row['UID']
@@ -279,29 +280,35 @@ class process:
             #bldg_code = row['building_code'].split(',')
             grp_size = max(row['guest_count'].split(','))
             reserv_n = row['reservation_number'].split(',')
+            reserv_n.sort()
+
+            # Process itinerary on buildings
+            case = []
+            for r in reserv_n:
+                case.append(df[df['reservation_number'] == int(r)][['arrival_date','departure_date','building_code','Stay_Date','reservation_number']])
+
+            # Create a single frame for all reservations
+            it = pd.concat(case)
+            bldgs = it.groupby(['building_code','Stay_Date','reservation_number']).min().reset_index().sort_values(by='Stay_Date')
             
-            # Process arrival and departure from building
-            arrival_date = df[df.reservation_number == int(reserv_n[0])]['arrival_date'].mean()
-            departure_date = df[df.reservation_number == int(reserv_n[-1])]['departure_date'].mean()
+            # Compute arrival and departure for itinerary
+            arrival_date = it['arrival_date'].min()
+            departure_date = it['departure_date'].max()
             
-            # Get the arrival dates for all buildings in list
-            arr_date = []
-            bld_cd = []
-            for _ in reserv_n:
-                res = df[df.reservation_number == int(reserv_n[0])]
-                res = res.groupby(['building_code','Stay_Date']).mean().reset_index().groupby(['building_code']).min().reset_index()
-                for _,r in res.iterrows():
-                    arr_date.append(r['Stay_Date'])
-                    bld_cd.append(r['building_code'])
+            # Compute arrivals and departure from buildings
+            bldgs['diff']=bldgs.Stay_Date.diff().shift(-1)
+            bldgs['departure_bldg'] = bldgs['Stay_Date'] + bldgs['diff']
+            # Adjust departures
+            comp = bldgs['departure_bldg'] > bldgs['departure_date']
+            bldgs.loc[comp,'departure_bldg'] = bldgs['departure_date']
+            bldgs.iloc[-1,bldgs.columns.get_loc('departure_bldg')] = max(bldgs['departure_date'])
+            res_min = bldgs.groupby(['reservation_number','building_code']).min().reset_index().sort_values(by=['Stay_Date'])
+            res_max = bldgs.groupby(['reservation_number','building_code']).max().reset_index().sort_values(by=['Stay_Date'])
             
-            # Buildings table entries for this record
-            arr_date.sort()
-            dep_date = arr_date[1:]
-            dep_date.append(departure_date)
             bldg_visited_tbl = pd.DataFrame( data = { 'itinerary_id': itID,
-                                                    'building_code': bld_cd,
-                                                    'arrival': arr_date,
-                                                    'departure': dep_date })
+                                                    'building_code': res_min['building_code'],
+                                                    'arrival': res_min['Stay_Date'],
+                                                    'departure': res_max['departure_bldg'] })
             
             # Get distances
             origin = zip_code + ", " + country
@@ -346,16 +353,33 @@ class process:
             i_tbl = i_tbl.append(itinerary_tbl)
             b_visited_tbl = b_visited_tbl.append(bldg_visited_tbl)
             g_tbl = g_tbl.append(guest_tbl)
+            n_proc += 1
             
             # Print itinerary
-            if itID % 1000 == 0:
-                print(itID)
+            if n_proc % 1000 == 0:
+                print(f'{n_proc} of {itn}')
+                incr = n_proc/itn
+                if message != None:
+                    snd = message['send']
+                    jb = message['job']
+                    snd(jb,f"Processing itinerary {n_proc} of {itn}...", int(52 + (80-52)*incr))
             
             return itID
 
         # Find all tables for data
         print('Creating Tables...')
-        _ = itinerary.apply(lambda r: upload_database(row=r,df=df1), axis=1)
+        
+        if message != None:
+            snd = message['send']
+            jb = message['job']
+            snd(jb,"Creating tables for database...", 52)
+        
+        _ = itinerary.apply(lambda r: upload_database(row=r,df=df1, itn=itinerary.shape[0]), axis=1)
+
+        if message != None:
+            snd = message['send']
+            jb = message['job']
+            snd(jb,"Loading guest data to database...", 80)
 
         try:
             # Create connector to database
@@ -364,9 +388,28 @@ class process:
             print("Loading data to database...")
             # Upload all found tables to the database
             g_tbl.apply(lambda r: amc_db.guest_insert(r), axis=1)
+            if message != None:
+                snd = message['send']
+                jb = message['job']
+                snd(jb,"Loading itineraries to database...", 82)
+
             i_tbl.apply(lambda r: amc_db.itinerary_insert(r), axis=1)
+            if message != None:
+                snd = message['send']
+                jb = message['job']
+                snd(jb,"Loading reservation data to database...", 84)
+
             r_tbl.apply(lambda r: amc_db.reservation_insert(r), axis=1)
+            if message != None:
+                snd = message['send']
+                jb = message['job']
+                snd(jb,"Loading building visited to database...", 86)
+
             b_visited_tbl.apply(lambda r: amc_db.building_visited_insert(r), axis=1)
+            if message != None:
+                snd = message['send']
+                jb = message['job']
+                snd(jb,"Loading to database completed...", 88)
         except:
             print('Error: Could not update database. Connection error.')
         
@@ -461,7 +504,7 @@ class process:
         if message != None:
             snd = message['send']
             jb = message['job']
-            snd(jb,"Finding itineraries and group sizes...", 50)
+            snd(jb,"Finding itineraries and group sizes...", 40)
 
         # Processing for itineraries and group sizes
         print('Finding itineraries and group sizes...')
@@ -470,11 +513,11 @@ class process:
         if message != None:
             snd = message['send']
             jb = message['job']
-            snd(jb,"Tables for database created...", 80)
+            snd(jb,"Itineraries and group sizes created...", 50)
 
         # Create tables for database and update the database if possible
         print('Creating database tables and updating the database...')
-        i_tbl, g_tbl, r_tbl, b_visited_tbl = self.update_db(itinerary, df)
+        i_tbl, g_tbl, r_tbl, b_visited_tbl = self.update_db(itinerary, df, message)
 
         if message != None:
             snd = message['send']

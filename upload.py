@@ -84,7 +84,7 @@ def upload_and_process(dbstring, apikey, year, data):
 
         # Start processing
         ts = time.perf_counter()
-        tbls = pr.execute(df1, year)
+        tbls = pr.execute(df1, year, message=message)
         te = time.perf_counter()
         dt2 = (te-ts)/60
 
