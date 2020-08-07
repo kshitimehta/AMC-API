@@ -357,9 +357,9 @@ def q_emissions_facility_boston():
     '''
     
     # Query values available for the select controls
-    years = pd.read_sql("select distinct year from building_origin", dbstring)
+    years = pd.read_sql("select distinct year from emissions_by_zipcode", dbstring)
     years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
+    facilities = pd.read_sql("select distinct building_code, building_name from emissions_by_zipcode", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
 
@@ -403,9 +403,9 @@ def analysis_q_emissions_facility_boston():
     '''
     
     # Query values available for the select controls
-    years = pd.read_sql("select distinct year from building_origin", dbstring)
+    years = pd.read_sql("select distinct year from emissions_by_zipcode", dbstring)
     years = years['year'].astype(int).sort_values().tolist()
-    facilities = pd.read_sql("select distinct building_code, building_name from building_origin", dbstring)
+    facilities = pd.read_sql("select distinct building_code, building_name from emissions_by_zipcode", dbstring)
     facilities.sort_values(by=['building_name'])
     bldg_name = facilities['building_name'].tolist()
 
