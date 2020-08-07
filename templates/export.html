@@ -33,6 +33,7 @@
               <li ><a href="{{url_for('csv_export', type='table2')}}">Emissions Table</a></li>
               <li ><a href="{{url_for('csv_export', type='table3')}}">AMC Buildings Table</a></li>
               <li ><a href="{{url_for('csv_export', type='table4')}}">Distance Lookup Table</a></li>
+              <li ><a href="{{url_for('csv_export', type='table5')}}">Processing Error</a></li>
             </ul>
             </div>
         </div>
@@ -47,6 +48,8 @@
            <p>The AMC Buildings Table gives as output all unique facilities at AMC. It includes details about the airports nearest to that facility and the distances to those airports.</p>
            <br>
            <p>The Distance Lookup Table would output all unique distances between origin location of guests and destination location at AMC. It includes details about the building codes, city, state, country and zipcode.</p>
+           <br>
+           <p>The Processing Error Table would output all errors related to missing values and the invalid values in the raw data by year. This will allow AMC to be able to manipulate the emissions values in a distributed way to account for the errors.</p>
            </h4>
         </div>
         

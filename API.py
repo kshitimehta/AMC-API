@@ -737,6 +737,15 @@ def csv_export():
         response.headers['Content-Disposition'] = 'attachment; filename=distance_lookup.csv'
         response.headers["Content-type"] = "text/csv"
         return response 
+    if table == "table5":
+        c.execute('SELECT * FROM processing_err')
+        rows = c.fetchall()
+        cw.writerow([i[0] for i in c.description])
+        cw.writerows(rows)
+        response = make_response(si.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=error.csv'
+        response.headers["Content-type"] = "text/csv"
+        return response 
     else:
         return render_template('export.html')
     
